@@ -38,8 +38,8 @@ WORKDIR /riven
 # Copy the virtual environment from the builder
 COPY --from=builder /app/.venv /riven/.venv
 
-# Grant the necessary capabilities to the Python binary
-RUN setcap cap_sys_admin+ep /usr/local/bin/python3.13
+# Do not setcap the Python binary here. File caps + `su` to PUID (entrypoint.sh) often yields
+# "Operation not permitted" inside Docker. Grant SYS_ADMIN via compose instead (cap_add / devices).
 
 # Activate the virtual environment by adding it to the PATH
 ENV PATH="/riven/.venv/bin:$PATH"
