@@ -2,7 +2,7 @@
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Literal, Annotated
+from typing import Any, Literal, Annotated, cast
 
 from pydantic import (
     BaseModel,
@@ -895,20 +895,26 @@ class AppModel(Observable):
         if data is None or not isinstance(data, dict):
             return data
 
-        merged = dict(data)
+        merged: dict[str, Any] = {
+            str(k): v for k, v in cast(dict[Any, Any], data).items()
+        }
 
         if "filesystem" in merged:
-            legacy_fs = merged.pop("filesystem")
-            if isinstance(legacy_fs, dict):
-                legacy_fs = {
-                    k: v for k, v in legacy_fs.items() if k != "mount_path"
+            legacy_fs_raw = merged.pop("filesystem")
+            if isinstance(legacy_fs_raw, dict):
+                legacy_fs: dict[str, Any] = {
+                    str(k): v
+                    for k, v in cast(dict[Any, Any], legacy_fs_raw).items()
+                    if str(k) != "mount_path"
                 }
                 merged.setdefault("library", legacy_fs)
 
         if "updaters" in merged:
-            legacy_u = merged.pop("updaters")
-            if isinstance(legacy_u, dict) and "plex" in legacy_u:
-                merged.setdefault("plex", legacy_u["plex"])
+            legacy_u_raw = merged.pop("updaters")
+            if isinstance(legacy_u_raw, dict):
+                legacy_u = cast(dict[str, Any], legacy_u_raw)
+                if "plex" in legacy_u:
+                    merged.setdefault("plex", legacy_u["plex"])
 
         return merged
 
