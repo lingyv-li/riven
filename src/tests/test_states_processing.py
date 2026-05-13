@@ -6,9 +6,9 @@ from program.program import Program
 from program.services.downloaders.realdebrid import RealDebridDownloader
 from program.services.indexers import IndexerService
 from program.services.scrapers import Scraping
-from program.services.updaters.plex import PlexUpdater
+from program.services.finalize_service import FinalizeService
+from program.services.post_processing import PostProcessing
 from program.state_transition import process_event
-from program.services.filesystem import FilesystemService
 
 
 @pytest.fixture
@@ -132,9 +132,9 @@ def test_show_state_transitions(show):
         # (States.Requested, IndexerService, IndexerService),
         (States.Indexed, IndexerService, Scraping),
         (States.Scraped, Scraping, RealDebridDownloader),
-        (States.Downloaded, RealDebridDownloader, FilesystemService),
-        (States.Symlinked, FilesystemService, PlexUpdater),
-        (States.Completed, PlexUpdater, None),
+        (States.Downloaded, RealDebridDownloader, FinalizeService),
+        (States.Symlinked, FinalizeService, FinalizeService),
+        (States.Completed, PostProcessing, PostProcessing),
     ],
 )
 def test_process_event_transitions_movie(state, service, next_service, movie):
@@ -163,9 +163,9 @@ def test_process_event_transitions_movie(state, service, next_service, movie):
         # (States.Requested, IndexerService, IndexerService),
         (States.Indexed, IndexerService, Scraping),
         (States.Scraped, Scraping, RealDebridDownloader),
-        (States.Downloaded, RealDebridDownloader, FilesystemService),
-        (States.Symlinked, FilesystemService, PlexUpdater),
-        (States.Completed, PlexUpdater, None),
+        (States.Downloaded, RealDebridDownloader, FinalizeService),
+        (States.Symlinked, FinalizeService, FinalizeService),
+        (States.Completed, PostProcessing, PostProcessing),
     ],
 )
 def test_process_event_transition_shows(state, service, next_service, show):
@@ -202,9 +202,9 @@ def test_process_event_transition_shows(state, service, next_service, show):
         # (States.Requested, IndexerService, IndexerService),
         (States.Indexed, IndexerService, Scraping),
         (States.Scraped, Scraping, RealDebridDownloader),
-        (States.Downloaded, RealDebridDownloader, FilesystemService),
-        (States.Symlinked, FilesystemService, PlexUpdater),
-        (States.Completed, PlexUpdater, None),
+        (States.Downloaded, RealDebridDownloader, FinalizeService),
+        (States.Symlinked, FinalizeService, FinalizeService),
+        (States.Completed, PostProcessing, PostProcessing),
     ],
 )
 def test_process_event_transitions_media_item_movie(
@@ -234,9 +234,9 @@ def test_process_event_transitions_media_item_movie(
 #     # (States.Requested, TraktIndexer, TraktIndexer),
 #     (States.Indexed, TraktIndexer, Scraping),
 #     (States.Scraped, Scraping, Debrid),
-#     (States.Downloaded, Debrid, FilesystemService),
-#     (States.Symlinked, FilesystemService, PlexUpdater),
-#     (States.Completed, PlexUpdater, None)
+#     (States.Downloaded, Debrid, FinalizeService),
+#     (States.Symlinked, FinalizeService, FinalizeService),
+#     (States.Completed, PostProcessing, PostProcessing)
 # ])
 # def test_process_event_transitions_media_item_show(state, service, next_service, media_item_show):
 #     """Test processing events for state transitions."""

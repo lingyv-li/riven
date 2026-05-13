@@ -1,6 +1,5 @@
 import trio
 import trio_util
-import pyfuse3
 import httpx
 
 from functools import cached_property
@@ -68,7 +67,7 @@ class MediaStream:
     def __init__(
         self,
         *,
-        fh: pyfuse3.FileHandleT,
+        fh: int,
         file_size: int,
         path: str,
         original_filename: str,
@@ -77,7 +76,7 @@ class MediaStream:
         initial_url: str,
     ) -> None:
         stream_settings = settings_manager.settings.stream
-        fs = settings_manager.settings.filesystem
+        fs = settings_manager.settings.library
 
         self.fh = fh
         self.nursery = nursery
@@ -1156,10 +1155,10 @@ class MediaStream:
             True if successfully refreshed, False otherwise
         """
 
-        from program.services.filesystem.vfs import VFSDatabase
+        from program.services.media_entry_registry import MediaEntryRegistry
 
         # Query database by original_filename and force unrestrict
-        entry_info = di[VFSDatabase].get_entry_by_original_filename(
+        entry_info = di[MediaEntryRegistry].get_entry_by_original_filename(
             original_filename=self.file_metadata.original_filename,
             force_resolve=True,
         )

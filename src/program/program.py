@@ -6,6 +6,8 @@ import time
 from queue import Empty
 from tracemalloc import Snapshot
 
+from kink import di
+
 from program.apis import bootstrap_apis
 from program.managers.event_manager import EventManager
 from program.media.item import Episode, MediaItem, Movie, Season, Show
@@ -22,7 +24,8 @@ from program.services.indexers import IndexerService
 from program.services.notifications import NotificationService
 from program.services.post_processing import PostProcessing
 from program.services.scrapers import Scraping
-from program.services.updaters import Updater
+from program.services.finalize_service import FinalizeService
+from program.services.media_entry_registry import MediaEntryRegistry
 from program.settings import settings_manager
 from program.settings.models import get_version
 from program.utils import data_dir_path
@@ -31,7 +34,6 @@ from program.scheduling import ProgramScheduler
 from program.core.runner import Runner
 
 from .state_transition import process_event
-from .services.filesystem import FilesystemService
 from .types import Event
 
 from sqlalchemy import func, select, text
@@ -53,9 +55,8 @@ class Services:
     trakt: TraktContent
     indexer: IndexerService
     scraping: Scraping
-    updater: Updater
     downloader: Downloader
-    filesystem: FilesystemService
+    finalize: FinalizeService
     post_processing: PostProcessing
     notifications: NotificationService
 
@@ -120,6 +121,8 @@ class Program(threading.Thread):
         # Instantiate services fresh on each settings change; settings_manager observers handle reinit
         _downloader = Downloader()
 
+        di[MediaEntryRegistry] = MediaEntryRegistry(downloader=_downloader)
+
         self.services = Services(
             overseerr=Overseerr(),
             plex_watchlist=PlexWatchlist(),
@@ -128,9 +131,8 @@ class Program(threading.Thread):
             trakt=TraktContent(),
             indexer=IndexerService(),
             scraping=Scraping(),
-            updater=Updater(),
             downloader=_downloader,
-            filesystem=FilesystemService(_downloader),
+            finalize=FinalizeService(),
             post_processing=PostProcessing(),
             notifications=NotificationService(),
         )
@@ -157,16 +159,6 @@ class Program(threading.Thread):
         if not self.services.downloader.initialized:
             logger.error(
                 "No Downloader service initialized, you must enable at least one."
-            )
-
-        if not self.services.filesystem.initialized:
-            logger.error(
-                "Filesystem service failed to initialize, check your settings."
-            )
-
-        if not self.services.updater.initialized:
-            logger.error(
-                "No Updater service initialized, you must enable at least one."
             )
 
         if self.enable_trace:
@@ -383,9 +375,6 @@ class Program(threading.Thread):
             return
 
         self.scheduler_manager.stop()
-
-        if self.services:
-            self.services.filesystem.close()
 
         logger.log("PROGRAM", "Riven has been stopped.")
 

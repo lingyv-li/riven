@@ -19,7 +19,6 @@ from program.services.post_processing.subtitles.providers.base import (
 )
 from program.core.analysis_service import AnalysisService
 from .providers.opensubtitles import OpenSubtitlesProvider
-from .utils import calculate_opensubtitles_hash
 
 
 class SubtitleService(AnalysisService[SubtitleConfig]):
@@ -346,71 +345,16 @@ class SubtitleService(AnalysisService[SubtitleConfig]):
         """
         Calculate OpenSubtitles hash for the video file.
 
+        Without a local mount, hash-from-file is unavailable; subtitle search uses
+        metadata and filename only.
+
         Args:
             item: MediaItem with filesystem entry
 
         Returns:
             OpenSubtitles hash or None if calculation fails
         """
-        try:
-            media_entry = item.media_entry
-
-            assert media_entry
-
-            # Get file size from filesystem entry
-            file_size = media_entry.file_size
-
-            if not file_size or file_size < 128 * 1024:  # 128KB minimum
-                logger.debug(
-                    f"File too small ({file_size} bytes) to calculate hash for {item.log_string}"
-                )
-                return None
-
-            # Get the mounted VFS path
-            from program.settings import settings_manager
-
-            mount_path = settings_manager.settings.filesystem.mount_path
-
-            # Get VFS paths from MediaEntry (use base path)
-            vfs_paths = media_entry.get_all_vfs_paths()
-
-            if not vfs_paths:
-                logger.debug(
-                    f"No VFS paths for {item.log_string}, cannot calculate hash"
-                )
-                return None
-
-            vfs_path = vfs_paths[0]  # Use base path
-
-            # Construct the full path on the host filesystem
-            import os
-
-            full_path = os.path.join(mount_path, vfs_path.lstrip("/"))
-
-            # Check if file exists and is accessible
-            if not os.path.exists(full_path):
-                logger.debug(
-                    f"VFS file not accessible at {full_path} for {item.log_string}"
-                )
-                return None
-
-            # Calculate hash using the mounted VFS file
-            with open(full_path, "rb") as f:
-                video_hash = calculate_opensubtitles_hash(f, file_size)
-                logger.debug(
-                    f"Calculated OpenSubtitles hash for {item.log_string}: {video_hash}"
-                )
-
-                return video_hash
-
-        except FileNotFoundError:
-            logger.debug(
-                f"VFS file not found for {item.log_string}, cannot calculate hash"
-            )
-            return None
-        except Exception as e:
-            logger.error(f"Failed to calculate video hash for {item.log_string}: {e}")
-            return None
+        return None
 
     def _fetch_subtitle_for_language(
         self,
@@ -536,15 +480,6 @@ class SubtitleService(AnalysisService[SubtitleConfig]):
                 logger.debug(
                     f"Downloaded and stored {language} subtitle for {item.log_string}"
                 )
-
-                from program.program import riven
-
-                assert riven.services
-
-                filesystem_service = riven.services.filesystem
-
-                if filesystem_service and filesystem_service.riven_vfs:
-                    filesystem_service.riven_vfs.sync(item)
 
                 return
 

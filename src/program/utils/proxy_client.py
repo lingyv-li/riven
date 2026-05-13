@@ -12,7 +12,7 @@ class ProxyClient(httpx.AsyncClient):
     Async HTTP client configured for asyncio with proxy support.
 
     Uses sniffio's contextvar to force asyncio backend detection during requests.
-    This prevents conflicts when trio is imported by other modules (pyfuse3/VFS)
+    This prevents conflicts when trio is imported by other modules (e.g. streaming)
     but we're running in an asyncio context (FastAPI/uvicorn).
     """
 
@@ -35,7 +35,7 @@ class ProxyClient(httpx.AsyncClient):
 
         This override ensures that sniffio reports 'asyncio' as the current
         async library during the request, preventing runtime conflicts when
-        trio is also imported in the process (e.g., by pyfuse3 for VFS).
+        trio is also imported in the process (e.g. for trio-based streaming).
         """
         token = sniffio.current_async_library_cvar.set("asyncio")
         try:

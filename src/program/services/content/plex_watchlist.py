@@ -41,7 +41,7 @@ class PlexWatchlist(Runner[PlexWatchlistModel]):
         if not self.enabled:
             return False
 
-        if not settings_manager.settings.updaters.plex.token:
+        if not settings_manager.settings.plex.token:
             logger.error("Plex token is not set!")
             return False
 

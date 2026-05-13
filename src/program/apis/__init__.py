@@ -34,12 +34,12 @@ def __setup_tvdb():
 
 
 def __setup_plex():
-    if not settings_manager.settings.updaters.plex.enabled:
+    if not settings_manager.settings.plex.enabled:
         return
 
     di[PlexAPI] = PlexAPI(
-        settings_manager.settings.updaters.plex.token,
-        settings_manager.settings.updaters.plex.url,
+        settings_manager.settings.plex.token,
+        settings_manager.settings.plex.url,
     )
 
 

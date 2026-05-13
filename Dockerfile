@@ -4,7 +4,7 @@
 FROM python:3.13-alpine AS builder
 
 # Install only the necessary build dependencies
-RUN apk add --no-cache gcc musl-dev libffi-dev python3-dev build-base curl curl-dev openssl-dev fuse3-dev pkgconf fuse3
+RUN apk add --no-cache gcc musl-dev libffi-dev python3-dev build-base curl curl-dev openssl-dev
 
 # Install uv (fast package manager)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -27,11 +27,7 @@ LABEL name="Riven" \
       url="https://github.com/rivenmedia/riven"
 
 # Install only runtime dependencies
-RUN apk add --no-cache curl libcurl shadow unzip ffmpeg libpq fuse3 libcap libcap-utils postgresql17-client
-
-# Configure FUSE
-RUN sed -i 's/^#\s*user_allow_other/user_allow_other/' /etc/fuse.conf || \
-    echo 'user_allow_other' >> /etc/fuse.conf
+RUN apk add --no-cache curl libcurl shadow unzip ffmpeg libpq libcap libcap-utils postgresql17-client
 
 WORKDIR /riven
 
@@ -39,7 +35,7 @@ WORKDIR /riven
 COPY --from=builder /app/.venv /riven/.venv
 
 # Do not setcap the Python binary here. File caps + `su` to PUID (entrypoint.sh) often yields
-# "Operation not permitted" inside Docker. Grant SYS_ADMIN via compose instead (cap_add / devices).
+# "Operation not permitted" inside Docker.
 
 # Activate the virtual environment by adding it to the PATH
 ENV PATH="/riven/.venv/bin:$PATH"

@@ -588,8 +588,7 @@ class EventManager:
         event_types = [
             "Scraping",
             "Downloader",
-            "Symlinker",
-            "Updater",
+            "FinalizeService",
             "PostProcessing",
         ]
 

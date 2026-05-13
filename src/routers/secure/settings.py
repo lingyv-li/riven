@@ -36,7 +36,7 @@ async def get_settings_schema_for_keys(
     keys: Annotated[
         str,
         Query(
-            description="Comma-separated list of top-level keys to get schema for (e.g., 'version,api_key,updaters')",
+            description="Comma-separated list of top-level keys to get schema for (e.g., 'version,api_key,library,plex')",
             min_length=1,
         ),
     ],

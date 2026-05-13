@@ -1,5 +1,3 @@
-import os
-
 from collections.abc import Callable, Sequence
 from datetime import datetime
 from enum import Enum
@@ -575,9 +573,6 @@ async def reset_items(
 
     assert services, "Program services not initialized"
 
-    # Get updater service for media server refresh
-    updater = services.updater
-
     try:
         # Load items using ORM
         with db_session() as session:
@@ -589,30 +584,6 @@ async def reset_items(
 
             for media_item in items:
                 try:
-                    # Gather all refresh paths before reset (entry may appear at multiple VFS paths)
-                    refresh_paths = list[str]()
-
-                    media_entry = media_item.media_entry
-
-                    if updater and media_entry:
-                        vfs_paths = media_entry.get_all_vfs_paths()
-
-                        for vfs_path in vfs_paths:
-                            abs_path = os.path.join(
-                                updater.library_path, vfs_path.lstrip("/")
-                            )
-
-                            if isinstance(media_item, Movie):
-                                refresh_path = os.path.dirname(
-                                    os.path.dirname(abs_path)
-                                )
-                            else:  # show
-                                refresh_path = os.path.dirname(
-                                    os.path.dirname(os.path.dirname(abs_path))
-                                )
-                            if refresh_path not in refresh_paths:
-                                refresh_paths.append(refresh_path)
-
                     def mutation(i: MediaItem, s: Session):
                         """
                         Blacklist the MediaItem's currently active stream and reset the item's state.
@@ -637,14 +608,6 @@ async def reset_items(
                     )
 
                     session.commit()
-
-                    # Trigger media server refresh for all paths where this item appeared
-                    if updater and updater.initialized:
-                        for refresh_path in refresh_paths:
-                            updater.refresh_path(refresh_path)
-                            logger.debug(
-                                f"Triggered media server refresh for {refresh_path}"
-                            )
 
                 except ValueError as e:
                     logger.error(
@@ -769,7 +732,7 @@ async def remove_item(
     """
     Remove one or more media items identified by their IDs.
 
-    Deletes the MediaItem rows and their related data (joined-table rows, hierarchical children, subtitles, and stream relations) and coordinates related side effects: cancels active jobs for the item, deletes an associated Overseerr request when present, and triggers a media server library refresh for the item's library path when an Updater service is available and initialized.
+    Deletes the MediaItem rows and their related data (joined-table rows, hierarchical children, subtitles, and stream relations) and coordinates related side effects: cancels active jobs for the item and deletes an associated Overseerr request when present.
 
     Parameters:
         request (Request): FastAPI request object (used to access application services).
@@ -793,9 +756,7 @@ async def remove_item(
 
     assert services, "Program services not initialized"
 
-    # Get services
     overseerr = services.overseerr
-    updater = services.updater
     removed_ids = list[int]()
 
     with db_session() as session:
@@ -819,41 +780,7 @@ async def remove_item(
             # 1. Cancel active jobs (EventManager cancels children too)
             di[Program].em.cancel_job(item.id)
 
-            # 2. Gather all refresh paths before deletion (entry may appear at multiple VFS paths)
-            refresh_paths = list[str]()
-
-            if updater and item.filesystem_entry:
-                if media_entry := item.media_entry:
-                    for vfs_path in media_entry.get_all_vfs_paths():
-                        # Check if VFS path is already absolute (filesystem path)
-                        # VFS paths are normally VFS-relative (e.g., /movies/...) but could be
-                        # absolute filesystem paths in some configurations
-                        if os.path.isabs(vfs_path) and not vfs_path.startswith(
-                            str(updater.library_path)
-                        ):
-                            # VFS path is absolute but not under library_path - use as-is
-                            abs_path = vfs_path
-                        elif os.path.isabs(vfs_path) and vfs_path.startswith(
-                            str(updater.library_path)
-                        ):
-                            # VFS path is already an absolute path under library_path - use as-is
-                            abs_path = vfs_path
-                        else:
-                            # VFS path is VFS-relative - join with library_path
-                            abs_path = os.path.join(
-                                updater.library_path, vfs_path.lstrip("/")
-                            )
-
-                        if isinstance(item, Movie):
-                            refresh_path = os.path.dirname(os.path.dirname(abs_path))
-                        else:  # show
-                            refresh_path = os.path.dirname(
-                                os.path.dirname(os.path.dirname(abs_path))
-                            )
-                        if refresh_path not in refresh_paths:
-                            refresh_paths.append(refresh_path)
-
-            # 3. Delete from Overseerr
+            # 2. Delete from Overseerr
             if item.overseerr_id and overseerr:
                 try:
                     overseerr.api.delete_request(item.overseerr_id)
@@ -866,23 +793,13 @@ async def remove_item(
                         f"Failed to delete Overseerr request {item.overseerr_id}: {e}"
                     )
 
-            # 4. Remove from VFS
-            if services.filesystem.riven_vfs:
-                services.filesystem.riven_vfs.remove(item)
-
-            # 5. Delete from database using ORM
+            # 3. Delete from database using ORM
             session.delete(item)
             session.commit()
 
             removed_ids.append(item_id)
 
             logger.debug(f"Deleted item {item_id} from database")
-
-            # 6. Trigger media server refresh for all paths where this item appeared
-            if updater and updater.initialized:
-                for refresh_path in refresh_paths:
-                    updater.refresh_path(refresh_path)
-                    logger.debug(f"Triggered media server refresh for {refresh_path}")
 
     logger.info(f"Successfully removed items: {removed_ids}")
 

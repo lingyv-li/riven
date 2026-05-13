@@ -116,12 +116,11 @@ def process_event(
         next_service = services.downloader
         items_to_submit = [existing_item]
 
-    elif existing_item and existing_item.last_state == States.Downloaded:
-        next_service = services.filesystem
-        items_to_submit = [existing_item]
-
-    elif existing_item and existing_item.last_state == States.Symlinked:
-        next_service = services.updater
+    elif existing_item and existing_item.last_state in (
+        States.Downloaded,
+        States.Symlinked,
+    ):
+        next_service = services.finalize
         items_to_submit = [existing_item]
 
     elif existing_item and existing_item.last_state == States.Completed:

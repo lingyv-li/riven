@@ -255,7 +255,7 @@ async def get_stats() -> StatsResponse:
     """
     Produce aggregated statistics for the media library and its items.
 
-    The response includes total counts for media items, movies, shows, seasons, and episodes; the total number of filesystem symlinks (determined by existence of FilesystemEntry records linked to movie or episode items); a mapping of each state to its item count; the number of incomplete items; and a mapping of incomplete item IDs to their scraped attempt counts.
+    The response includes total counts for media items, movies, shows, seasons, and episodes; the total number of items with a filesystem/media entry record; a mapping of each state to its item count; the number of incomplete items; and a mapping of incomplete item IDs to their scraped attempt counts.
 
     Returns:
         StatsResponse: Aggregated statistics with keys `total_items`, `total_movies`, `total_shows`, `total_seasons`, `total_episodes`, `total_symlinks`, `incomplete_items`, `incomplete_retries`, and `states`.
@@ -410,38 +410,6 @@ async def get_events() -> EventResponse:
     return EventResponse(events=events)
 
 
-class MountResponse(BaseModel):
-    files: dict[str, str]
-
-
-@router.get(
-    "/mount",
-    operation_id="mount",
-    response_model=MountResponse,
-)
-async def get_mount_files() -> MountResponse:
-    """Get all files in the Riven VFS mount."""
-
-    import os
-
-    mount_dir = str(settings_manager.settings.filesystem.mount_path)
-
-    # `filename: filepath`
-    file_map = dict[str, str]()
-
-    def scan_dir(path: str):
-        with os.scandir(path) as entries:
-            for entry in entries:
-                if entry.is_file():
-                    file_map[entry.name] = entry.path
-                elif entry.is_dir():
-                    scan_dir(entry.path)
-
-    scan_dir(mount_dir)
-
-    return MountResponse(files=file_map)
-
-
 class UploadLogsResponse(BaseModel):
     success: bool
     url: Annotated[
@@ -538,34 +506,6 @@ async def fetch_calendar() -> CalendarResponse:
 
     with db_session() as session:
         return CalendarResponse(data=db_functions.create_calendar(session))
-
-
-class VFSStatsResponse(BaseModel):
-    stats: Annotated[
-        dict[str, dict[str, Any]],
-        Field(description="VFS statistics"),
-    ]
-
-
-@router.get(
-    "/vfs_stats",
-    summary="Get VFS Statistics",
-    description="Get statistics about the VFS",
-    operation_id="get_vfs_stats",
-    response_model=VFSStatsResponse,
-)
-async def get_vfs_stats() -> VFSStatsResponse:
-    """Get statistics about the VFS"""
-
-    services = di[Program].services
-
-    assert services
-
-    vfs = services.filesystem.riven_vfs
-
-    assert vfs
-
-    return VFSStatsResponse(stats=vfs.opener_stats)
 
 
 class DebugResponse(BaseModel):

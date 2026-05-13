@@ -1,34 +1,22 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, TypedDict
+from typing import TYPE_CHECKING, Literal
 
 from kink import di
 from loguru import logger
 
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+
 from program.db.db import db_session
 from program.media.media_entry import MediaEntry
-from program.services.streaming.exceptions import (
-    DebridServiceLinkUnavailable,
-)
 from program.media.item import MediaItem
+from program.services.streaming.exceptions import DebridServiceLinkUnavailable
 from program.types import Event
-from routers.secure.items import apply_item_mutation
 from program.utils.debrid_cdn_url import DebridCDNUrl
 
 if TYPE_CHECKING:
     from program.services.downloaders import Downloader
-
-
-class VFSEntry(TypedDict):
-    virtual_path: str
-    name: str
-    size: int
-    is_directory: bool
-    entry_type: str | None
-    created: str | None
-    modified: str | None
 
 
 class GetEntryByOriginalFilenameResult(BaseModel):
@@ -49,41 +37,20 @@ class GetEntryByOriginalFilenameResult(BaseModel):
         return self.unrestricted_url or self.download_url
 
 
-class VFSDatabase:
-    def __init__(self, downloader: "Downloader | None" = None) -> None:
-        """
-        Initialize VFS Database.
+class MediaEntryRegistry:
+    """DB-backed media entry lookups and debrid URL refresh (no local mount)."""
 
-        Args:
-            downloader: Downloader instance with initialized services for URL resolution
-        """
-
+    def __init__(self, downloader: Downloader | None = None) -> None:
         self.downloader = downloader
 
-    # --- Queries ---
     def get_subtitle_content(
         self,
         parent_original_filename: str,
         language: str,
     ) -> bytes | None:
-        """
-        Get the subtitle content for a SubtitleEntry.
-
-        In the new architecture, subtitles are looked up by their parent video's
-        original_filename and language code, not by path.
-
-        Parameters:
-            parent_original_filename (str): Original filename of the parent MediaEntry (video file).
-            language (str): ISO 639-3 language code (e.g., 'eng').
-
-        Returns:
-            bytes: Subtitle content encoded as UTF-8, or None if not found or not a subtitle.
-        """
-
         with db_session() as session:
             from program.media.subtitle_entry import SubtitleEntry
 
-            # Query specifically for SubtitleEntry by parent and language
             subtitle = (
                 session.query(SubtitleEntry)
                 .filter_by(
@@ -102,21 +69,11 @@ class VFSDatabase:
         entry: MediaEntry,
         session: Session,
     ) -> str | None:
-        """
-        Refresh the unrestricted URL for a MediaEntry using the downloader services.
-
-        Args:
-            entry: MediaEntry to refresh
-        """
-
         if not self.downloader:
             logger.warning("No downloader available to refresh unrestricted URL")
 
             return None
 
-        from program.program import Program
-
-        # Find service by matching the key attribute (services dict uses class as key)
         service = next(
             (
                 svc
@@ -149,16 +106,16 @@ class VFSDatabase:
                     f"Failed to unrestrict URL for {entry.original_filename}: {e}"
                 )
 
-                # If un-restricting fails, reset the MediaItem to trigger a new download
                 if entry.media_item:
-                    item_id = entry.media_item.id
+                    from program.program import Program as ProgramCls
+                    from routers.secure.items import apply_item_mutation
 
                     def mutation(i: MediaItem, s: Session):
                         i.blacklist_active_stream()
                         i.reset()
 
                     apply_item_mutation(
-                        program=di[Program],
+                        program=di[ProgramCls],
                         item=entry.media_item,
                         mutation_fn=mutation,
                         session=session,
@@ -166,10 +123,10 @@ class VFSDatabase:
 
                     session.commit()
 
-                    di[Program].em.add_event(
+                    di[ProgramCls].em.add_event(
                         Event(
-                            "VFS",
-                            item_id,
+                            "StateTransition",
+                            entry.media_item.id,
                         )
                     )
 
@@ -187,19 +144,6 @@ class VFSDatabase:
         original_filename: str,
         force_resolve: bool = False,
     ) -> GetEntryByOriginalFilenameResult | None:
-        """
-        Get entry metadata and download URL by original filename.
-
-        This is the NEW API that replaces path-based lookups.
-
-        Args:
-            original_filename: Original filename from debrid provider
-            force_resolve: If True, force refresh of unrestricted URL from provider
-
-        Returns:
-            Dictionary with entry metadata and URLs, or None if not found
-        """
-
         try:
             with db_session() as session:
                 entry = (
@@ -211,11 +155,9 @@ class VFSDatabase:
                 if not entry:
                     return None
 
-                # Get download URL (with optional unrestricting)
                 download_url = entry.download_url
                 unrestricted_url = entry.unrestricted_url
 
-                # If force_resolve or no unrestricted URL, try to unrestrict
                 if (force_resolve or not unrestricted_url) and (
                     self.downloader and entry.provider
                 ):

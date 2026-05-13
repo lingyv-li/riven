@@ -108,7 +108,7 @@ class DownloadersModel(Observable):
     )
 
 
-# Filesystem Service
+# Library naming, profiles, and stream disk cache (no local mount)
 
 
 class LibraryProfileFilterRules(BaseModel):
@@ -227,12 +227,7 @@ class LibraryProfile(BaseModel):
         return v
 
 
-class FilesystemModel(Observable):
-    mount_path: Path = Field(
-        default=Path("/path/to/riven/mount"),
-        description="Path where Riven will mount the virtual filesystem",
-    )
-
+class LibrarySettingsModel(Observable):
     library_profiles: dict[str, LibraryProfile] = Field(
         default_factory=lambda: {
             "anime": LibraryProfile(
@@ -258,11 +253,10 @@ class FilesystemModel(Observable):
             ),
         },
         description=(
-            "Library profiles for organizing media into different libraries based on metadata. "
-            "An example profile is provided (disabled by default) - enable them or create your own. "
-            "Each profile filters media by metadata (genres, ratings, etc.) and creates VFS paths. "
-            "Media appears in all matching profile paths. Use '!' prefix in filter lists to exclude values "
-            "(e.g., genres: ['action', '!horror'] = action movies but not horror)."
+            "Library profiles for organizing media by metadata (optional extra logical paths). "
+            "An example profile is provided (disabled by default). "
+            "Use '!' prefix in filter lists to exclude values "
+            "(e.g., genres: ['action', '!horror'])."
         ),
     )
     cache_dir: Path = Field(
@@ -445,52 +439,13 @@ class Updatable(Observable):
         return v
 
 
-# Updaters
-
-
 class PlexLibraryModel(Observable):
-    enabled: bool = Field(default=False, description="Enable Plex library updates")
+    """Plex server API (watchlist RSS, metadata helpers). Library path scanning was removed."""
+
+    enabled: bool = Field(default=False, description="Enable Plex API integration")
     token: str = Field(default="", description="Plex authentication token")
     url: EmptyOrUrl = Field(
         default="http://localhost:32400", description="Plex server URL"
-    )
-
-
-class JellyfinLibraryModel(Observable):
-    enabled: bool = Field(default=False, description="Enable Jellyfin library updates")
-    api_key: str = Field(default="", description="Jellyfin API key")
-    url: EmptyOrUrl = Field(
-        default="http://localhost:8096", description="Jellyfin server URL"
-    )
-
-
-class EmbyLibraryModel(Observable):
-    enabled: bool = Field(default=False, description="Enable Emby library updates")
-    api_key: str = Field(default="", description="Emby API key")
-    url: EmptyOrUrl = Field(
-        default="http://localhost:8096", description="Emby server URL"
-    )
-
-
-class UpdatersModel(Observable):
-    updater_interval: int = Field(
-        default=120, ge=1, description="Interval in seconds between library updates"
-    )
-    library_path: Path = Field(
-        default=Path("/path/to/library/mount"),
-        description="Path to which your media library mount point",
-    )
-    plex: PlexLibraryModel = Field(
-        default_factory=PlexLibraryModel,
-        description="Plex library configuration",
-    )
-    jellyfin: JellyfinLibraryModel = Field(
-        default_factory=JellyfinLibraryModel,
-        description="Jellyfin library configuration",
-    )
-    emby: EmbyLibraryModel = Field(
-        default_factory=EmbyLibraryModel,
-        description="Emby library configuration",
     )
 
 
@@ -932,6 +887,31 @@ class StreamModel(Observable):
 
 
 class AppModel(Observable):
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_legacy_top_level_keys(cls, data: Any) -> Any:
+        """Accept pre-refactor settings.json: ``filesystem`` / ``updaters``."""
+
+        if data is None or not isinstance(data, dict):
+            return data
+
+        merged = dict(data)
+
+        if "filesystem" in merged:
+            legacy_fs = merged.pop("filesystem")
+            if isinstance(legacy_fs, dict):
+                legacy_fs = {
+                    k: v for k, v in legacy_fs.items() if k != "mount_path"
+                }
+                merged.setdefault("library", legacy_fs)
+
+        if "updaters" in merged:
+            legacy_u = merged.pop("updaters")
+            if isinstance(legacy_u, dict) and "plex" in legacy_u:
+                merged.setdefault("plex", legacy_u["plex"])
+
+        return merged
+
     version: str = Field(default_factory=get_version, description="Application version")
     api_key: str = Field(default="", description="API key for Riven API access")
     log_level: Literal["TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = (
@@ -953,13 +933,13 @@ class AppModel(Observable):
     tracemalloc: bool = Field(
         default=False, description="Enable Python memory tracking (debug)"
     )
-    filesystem: FilesystemModel = Field(
-        default_factory=lambda: FilesystemModel(),
-        description="Filesystem configuration",
+    library: LibrarySettingsModel = Field(
+        default_factory=lambda: LibrarySettingsModel(),
+        description="Library naming templates, optional profiles, and stream disk cache",
     )
-    updaters: UpdatersModel = Field(
-        default_factory=lambda: UpdatersModel(),
-        description="Library updaters configuration",
+    plex: PlexLibraryModel = Field(
+        default_factory=PlexLibraryModel,
+        description="Plex server API configuration",
     )
     downloaders: DownloadersModel = Field(
         default_factory=lambda: DownloadersModel(),

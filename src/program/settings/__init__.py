@@ -11,6 +11,18 @@ from pydantic import ValidationError
 from program.settings.models import AppModel, Observable
 from program.utils import data_dir_path
 
+# Primary env name -> deprecated names still honored when loading settings.
+LEGACY_ENV_ALIASES: dict[str, tuple[str, ...]] = {
+    "RIVEN_LIBRARY_CACHE_DIR": ("RIVEN_FILESYSTEM_CACHE_DIR",),
+    "RIVEN_LIBRARY_CACHE_MAX_SIZE_MB": ("RIVEN_FILESYSTEM_CACHE_MAX_SIZE_MB",),
+    "RIVEN_LIBRARY_CACHE_TTL_SECONDS": ("RIVEN_FILESYSTEM_CACHE_TTL_SECONDS",),
+    "RIVEN_LIBRARY_CACHE_EVICTION": ("RIVEN_FILESYSTEM_CACHE_EVICTION",),
+    "RIVEN_LIBRARY_CACHE_METRICS": ("RIVEN_FILESYSTEM_CACHE_METRICS",),
+    "RIVEN_PLEX_ENABLED": ("RIVEN_UPDATERS_PLEX_ENABLED",),
+    "RIVEN_PLEX_TOKEN": ("RIVEN_UPDATERS_PLEX_TOKEN",),
+    "RIVEN_PLEX_URL": ("RIVEN_UPDATERS_PLEX_URL",),
+}
+
 
 class SettingsManager:
     """Class that handles settings, ensuring they are validated against a Pydantic schema."""
@@ -45,6 +57,17 @@ class SettingsManager:
         for observer in self.observers:
             observer()
 
+    @staticmethod
+    def _env_first(primary: str) -> str | None:
+        value = os.getenv(primary)
+        if value not in (None, ""):
+            return value
+        for alt in LEGACY_ENV_ALIASES.get(primary, ()):
+            value = os.getenv(alt)
+            if value not in (None, ""):
+                return value
+        return None
+
     def check_environment(
         self,
         settings: dict[str, Any],
@@ -63,12 +86,11 @@ class SettingsManager:
             else:
                 environment_variable = f"{prefix}_{key}".upper()
 
-                if os.getenv(environment_variable, None):
-                    new_value = os.getenv(environment_variable)
+                raw_env = self._env_first(environment_variable)
+                if raw_env:
+                    new_value = raw_env
 
-                    if new_value is None:
-                        checked_settings[key] = value
-                    elif isinstance(value, bool):
+                    if isinstance(value, bool):
                         checked_settings[key] = (
                             new_value.lower() == "true" or new_value == "1"
                         )

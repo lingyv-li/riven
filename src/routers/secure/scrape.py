@@ -1058,7 +1058,7 @@ def _download_and_update(
 
         session.commit()
 
-        # Emit events for matched items → Filesystem → Symlinker
+        # Emit events for matched items → finalize (URL-only pipeline)
         if isinstance(item, (Show, Season)):
             for season in item.seasons if isinstance(item, Show) else [item]:
                 for episode in season.episodes:

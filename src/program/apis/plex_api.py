@@ -1,4 +1,4 @@
-﻿from typing import Literal, cast
+from typing import Literal, cast
 from pydantic import BaseModel, field_validator
 import regex
 from loguru import logger
@@ -88,7 +88,7 @@ class PlexAPI:
     def ratingkey_to_imdbid(self, ratingKey: str) -> str | None:
         """Convert Plex rating key to IMDb ID"""
 
-        token = settings_manager.settings.updaters.plex.token
+        token = settings_manager.settings.plex.token
         filter_params = (
             "includeGuids=1&includeFields=guid,title,year&includeElements=Guid"
         )

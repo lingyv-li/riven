@@ -1,8 +1,7 @@
 """
-Naming service for generating clean VFS paths from original filenames.
+Naming helpers for stable library-style paths from original filenames.
 
-This is the single source of truth for path generation in RivenVFS.
-Supports flexible naming templates configured in settings.
+Templates come from settings (library.* naming fields).
 """
 
 import os
@@ -276,7 +275,7 @@ class NamingService:
     This replaces the old path_utils.generate_target_path() and centralizes
     all path generation logic in RivenVFS.
 
-    Uses configurable naming templates from settings.filesystem for flexible
+    Uses configurable naming templates from settings.library for flexible
     file and directory naming.
     """
 
@@ -375,7 +374,7 @@ class NamingService:
         """
         Create folder structure for movie using template from settings.
 
-        Template: settings.filesystem.movie_dir_template
+        Template: settings.library.movie_dir_template
         Default: "{title} ({year}) {{tmdb-{tmdb_id}}}"
         """
 
@@ -383,7 +382,7 @@ class NamingService:
         context = NameBuilder(item=item)
 
         # Get template from settings
-        template = settings_manager.settings.filesystem.movie_dir_template
+        template = settings_manager.settings.library.movie_dir_template
 
         # Render template
         try:
@@ -402,15 +401,15 @@ class NamingService:
         Create folder structure for show/season/episode using templates from settings.
 
         Templates:
-        - Show dir: settings.filesystem.show_dir_template
-        - Season dir: settings.filesystem.season_dir_template
+        - Show dir: settings.library.show_dir_template
+        - Season dir: settings.library.season_dir_template
         """
 
         # Build show directory context
         show_context = NameBuilder(item=item.top_parent)
 
         # Render show directory template
-        show_dir_template = settings_manager.settings.filesystem.show_dir_template
+        show_dir_template = settings_manager.settings.library.show_dir_template
 
         try:
             segment = show_context.to_format(show_dir_template)
@@ -432,7 +431,7 @@ class NamingService:
                 season_context = NameBuilder(item=item.parent)
 
             # Render season directory template
-            season_template = settings_manager.settings.filesystem.season_dir_template
+            season_template = settings_manager.settings.library.season_dir_template
 
             try:
                 season_segment = self._sanitize_name(
@@ -476,7 +475,7 @@ class NamingService:
         """
         Generate clean filename for movie using template from settings.
 
-        Template: settings.filesystem.movie_file_template
+        Template: settings.library.movie_file_template
         Default: "{title} ({year})"
 
         Includes media metadata from MediaEntry if available.
@@ -486,7 +485,7 @@ class NamingService:
         context = NameBuilder(item=item)
 
         # Get template from settings
-        template = settings_manager.settings.filesystem.movie_file_template
+        template = settings_manager.settings.library.movie_file_template
 
         # Render template
         try:
@@ -501,7 +500,7 @@ class NamingService:
         """
         Generate clean filename for episode using template from settings.
 
-        Template: settings.filesystem.episode_file_template
+        Template: settings.library.episode_file_template
         Default: "{show[title]} - s{season:02d}e{episode:02d}"
 
         For multi-episode files, automatically formats episode numbers as EXX-YY
@@ -540,7 +539,7 @@ class NamingService:
                 parsed = None
 
         # Get template from settings
-        template = settings_manager.settings.filesystem.episode_file_template
+        template = settings_manager.settings.library.episode_file_template
 
         # For multi-episode files, modify the template to use range format
         if len(episodes) > 1:

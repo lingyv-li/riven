@@ -125,12 +125,12 @@ class DebridCDNUrl:
     def _refresh(self) -> str | None:
         """Refresh the CDN URL."""
 
-        from program.services.filesystem.vfs.db import VFSDatabase
+        from program.services.media_entry_registry import MediaEntryRegistry
 
         with db_session() as session:
             entry = session.merge(self.entry)
 
-            url = di[VFSDatabase].refresh_unrestricted_url(
+            url = di[MediaEntryRegistry].refresh_unrestricted_url(
                 entry=entry,
                 session=session,
             )

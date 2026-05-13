@@ -46,7 +46,7 @@ class LibraryProfileMatcher:
             >>> profiles = matcher.get_matching_profiles(movie_item)
             >>> # ['kids', 'family']  # Movie matches both profiles
         """
-        profiles = settings_manager.settings.filesystem.library_profiles or {}
+        profiles = settings_manager.settings.library.library_profiles or {}
 
         matching_profiles = list[str]()
 

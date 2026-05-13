@@ -13,8 +13,7 @@ from program.services.content import (
 )
 from program.services.downloaders import Downloader
 from program.services.scrapers import Scraping
-from program.services.updaters import Updater
-from program.services.filesystem import FilesystemService
+from program.services.finalize_service import FinalizeService
 from program.media.state import States
 from program.services.indexers import IndexerService
 from program.services.post_processing import PostProcessing
@@ -26,8 +25,7 @@ Content = Overseerr | PlexWatchlist | Listrr | Mdblist | TraktContent
 Service = (
     Content
     | Scraper
-    | FilesystemService
-    | Updater
+    | FinalizeService
     | IndexerService
     | PostProcessing
     | Downloader

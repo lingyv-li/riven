@@ -392,8 +392,6 @@ class MediaItem(MappedAsDataclass, Base, kw_only=True):
     def _determine_state(self) -> States:
         if self.updated:
             return States.Completed
-        elif self.available_in_vfs:
-            return States.Symlinked
 
         if self.last_state == States.Paused:
             return States.Paused
@@ -696,16 +694,6 @@ class MediaItem(MappedAsDataclass, Base, kw_only=True):
         still accessible in the session.
         """
 
-        # Remove VFS nodes BEFORE clearing entries (so we can still access them)
-        from program.program import riven
-
-        assert riven.services
-
-        filesystem_service = riven.services.filesystem
-
-        if filesystem_service.riven_vfs:
-            filesystem_service.riven_vfs.remove(self)
-
         # Clear filesystem entries - ORM automatically deletes orphaned entries
         self.filesystem_entries.clear()
 
@@ -881,9 +869,6 @@ class Show(MediaItem):
             ):
                 return States.PartiallyCompleted
 
-            if any(season.state == States.Symlinked for season in self.seasons):
-                return States.Symlinked
-
             if any(season.state == States.Downloaded for season in self.seasons):
                 return States.Downloaded
 
@@ -1047,9 +1032,6 @@ class Season(MediaItem):
 
             if any(episode.state == States.Completed for episode in self.episodes):
                 return States.PartiallyCompleted
-
-            if any(episode.state == States.Symlinked for episode in self.episodes):
-                return States.Symlinked
 
             if any(episode.state == States.Downloaded for episode in self.episodes):
                 return States.Downloaded

@@ -104,7 +104,7 @@ class MediaEntry(FilesystemEntry):
         Generate all VFS paths for this entry.
 
         This is the single source of truth for path generation, used by both
-        RivenVFS registration and Updater refresh logic.
+        Display paths and optional library profile views (no local mount).
 
         Every item ALWAYS appears in the base /movies or /shows path.
         Library profiles provide ADDITIONAL filtered views (e.g., /kids, /anime).
@@ -113,7 +113,7 @@ class MediaEntry(FilesystemEntry):
             List of VFS paths (e.g., ["/movies/Movie.mkv", "/kids/Movie.mkv"])
             Always includes at least the base path.
         """
-        from program.services.filesystem.vfs.naming import generate_clean_path
+        from program.services.path_naming import generate_clean_path
         from program.settings import settings_manager
 
         # Get the associated MediaItem
@@ -136,7 +136,7 @@ class MediaEntry(FilesystemEntry):
 
         # Add additional paths from library profiles (optional filtered views)
         if self.library_profiles:
-            profiles = settings_manager.settings.filesystem.library_profiles
+            profiles = settings_manager.settings.library.library_profiles
 
             for profile_key in self.library_profiles:
                 if profile_key not in profiles:

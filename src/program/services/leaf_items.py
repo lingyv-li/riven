@@ -1,6 +1,4 @@
-"""
-Common utilities used by FilesystemService (VFS-only).
-"""
+"""Leaf media items for pipeline steps (movie / episode lists)."""
 
 from program.media.item import Episode, MediaItem, Movie, Season, Show
 from program.media.state import States
@@ -22,11 +20,15 @@ def get_items_to_update(item: MediaItem) -> list[MediaItem]:
                 ep
                 for season in item.seasons
                 for ep in season.episodes
-                if ep.state == States.Downloaded
+                if ep.state in (States.Downloaded, States.Symlinked)
             ]
 
         if isinstance(item, Season):
-            return [ep for ep in item.episodes if ep.state == States.Downloaded]
+            return [
+                ep
+                for ep in item.episodes
+                if ep.state in (States.Downloaded, States.Symlinked)
+            ]
     except Exception:
         pass
 
