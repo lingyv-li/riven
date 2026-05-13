@@ -481,6 +481,11 @@ class MediaItem(MappedAsDataclass, Base, kw_only=True):
             "requested_by": self.requested_by,
             "scraped_at": str(self.scraped_at),
             "scraped_times": self.scraped_times,
+            "active_stream": (
+                self.active_stream.model_dump()
+                if self.active_stream is not None
+                else None
+            ),
         }
 
         if isinstance(self, (Show, Season)):
@@ -516,7 +521,6 @@ class MediaItem(MappedAsDataclass, Base, kw_only=True):
             extended_dict["blacklisted_streams"] = [
                 stream.to_dict() for stream in self.blacklisted_streams
             ]
-            extended_dict["active_stream"] = self.active_stream
         extended_dict["number"] = (
             self.number if isinstance(self, Episode | Season) else None
         )
